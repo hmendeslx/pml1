@@ -1,0 +1,175 @@
+---
+title: "Exercise Prediction Algorithms (PML Coursera) "
+#author: "Hélder Mendes"
+date: "08/13/2014"
+output: html_document
+---
+
+### Objective
+
+Tis work will create a model to preview the quality of barbell lifts exercises performed by 6 people. Data is obtained from  <http://groupware.les.inf.puc-rio.br/har> and contain measurements from 3 accelerometers placed on the arm, belt and forearm of each participant. The classification varies from A to E where A is the best performance. The final goal is to create a model that previews reliably 20 new observations.
+
+Two models for predition are tested one based on Support Vector Machines and a second on Random Forest.
+
+
+### Loading and cleaning data
+
+
+The code for loading both traning and testing sets is presented on this section. Training is a 19662x160 dimension matrix and testing is 20x160. After cleanup, the number of features is reduced to 60 on both matrices.
+
+
+
+```{r}
+
+################################################################################
+# Loading and Cleaning Data
+#
+library(caret)
+
+setwd("L:/R/practical_ml/assignements")
+
+training <- read.table("pml-training.csv", sep=",", header=T)
+testing <- read.table("pml-testing.csv", sep=",", header=T)
+
+# Cleaning Data NA and ""
+clean_flag <- apply(training, 2, function(x) {
+  sum(is.na(x)) + sum(x=="")
+})
+
+clean_training <- training[,which(clean_flag == 0)]
+clean_testing <- testing[,which(clean_flag == 0)]
+
+train_index <- createDataPartition(y = clean_training$classe, p = 0.7, list = FALSE)
+training_set <- clean_training[train_index, ]
+cross_validation_set <- clean_training[-train_index, ]
+
+# Remove qualitative features (fisrt 6 columns)
+remove_index <- as.integer(c(1, 2, 3, 4, 5, 6))
+training_set <- training_set[, -remove_index]
+testing_set <- clean_testing[, -remove_index]
+```
+
+### Support Vector Machine Model
+
+The first model to be implemented in order to predict the new 20 occurrences from the testing set is based on SVM. Code for its contruction is presented here.
+
+
+Model Construction:
+```{r}
+
+mytrControlsvm = trainControl(method = "cv", number = 6)
+modelsvm <- train(training_set$classe ~ ., data = training_set, 
+                    method = "svmRadial", trControl = mytrControlsvm)
+
+modelsvm
+
+```
+
+
+Prediction and accuracy:
+
+```{r}
+
+predicted_svm <- predict(modelsvm, cross_validation_set)
+SampleError_svm <- sum(predicted_svm == cross_validation_set$classe)/nrow(cross_validation_set)
+accuracy_svm = SampleError_svm * 100
+prtext <- paste("Accuracy for SVM Model =", round(accuracy_svm,2), "%")
+print(prtext)
+
+```
+
+Confusion Matrix:
+
+```{r}
+table(predicted_svm,cross_validation_set$classe)
+```
+
+
+Cost function versus Accuracy for SVM Model:
+
+```{r}
+plot(modelsvm)
+```
+
+
+Predictions:
+```{r}
+
+# Apply SVM Model to Testing Set
+answers_svm <- predict(modelsvm, testing_set)
+answers_svm
+
+```
+
+
+
+
+### Random Forest Model (RF)
+
+The second model to be implemented is based on RF. The code, accuracy and corresponding predictions is presented here.
+
+
+```{r}
+
+mytrControlrf = trainControl(method = "cv", number = 4)
+modelrf <- train(training_set$classe ~ ., data = training_set, 
+                  method = "rf", trControl = mytrControlrf)
+
+modelrf
+
+
+```
+
+
+Prediction and accuracy:
+
+```{r}
+
+predicted_rf <- predict(modelrf, cross_validation_set)
+SampleError_rf <- sum(predicted_rf == cross_validation_set$classe)/nrow(cross_validation_set)
+accuracy_rf = SampleError_rf * 100
+prtext <- paste("Accuracy for RF Model =", round(accuracy_rf,2), "%")
+print(prtext)
+
+```
+
+Confusion Matrix:
+
+```{r}
+table(predicted_rf,cross_validation_set$classe)
+```
+
+
+Cost function versus Accuracy for RF Model:
+
+```{r}
+plot(modelrf)
+```
+
+
+Predictions:
+
+
+```{r}
+
+# Apply RF Model to Testing Set
+answers_rf <- predict(modelrf, testing_set)
+answers_rf
+
+```
+
+
+
+
+### Conclusion
+
+According to the results presented in this report the accuracy determined for each model is, 92.98% for Support Vector Machine method and 99.66% for Random Forest. These results are obtained from the traning set using cross-validation. The confusion matrix confirms that the number of wrong class assignements from SVM is higher than for RF.
+
+Considering these results, the expected clesses for the new 20 occurrences from the testing set, correspond the predictions performed with the RF method, which are:
+
+
+```{r}
+answers_rf
+```
+
+
